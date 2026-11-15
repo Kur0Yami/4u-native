@@ -1507,6 +1507,7 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
                     return true;
                 }
                 Log.i("MH4U", "diag: key not taken by SDL: keycode=" + keyCode + " device=" + deviceId);
+                Log.i("MH4U", "diag: key not taken by SDL: keycode=" + keyCode + " device=" + deviceId);
             } else if (event.getAction() == KeyEvent.ACTION_UP) {
                 if (SDLControllerManager.onNativePadUp(deviceId, keyCode, event.getScanCode())) {
                     return true;
