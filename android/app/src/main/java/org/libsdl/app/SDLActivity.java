@@ -541,6 +541,8 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
     protected void onResume() {
         Log.v(TAG, "onResume()");
         super.onResume();
+        SDLControllerManager.watchDevices();  // MH4U: a pad connected after the start is listed (see watchDevices)
+        SDLControllerManager.pollInputDevices();
 
         if (mHIDDeviceManager != null) {
             mHIDDeviceManager.setFrozen(false);
@@ -1495,6 +1497,10 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
         // Furthermore, it's possible a game controller has SOURCE_KEYBOARD and
         // SOURCE_JOYSTICK, while its key events arrive from the keyboard source
         // So, retrieve the device itself and check all of its sources
+        // MH4U v6: a pad's button goes to the game as a touch button would (SDLControllerManager.padKeyVirtual)
+        if (SDLControllerManager.padKeyVirtual(deviceId, keyCode, event.getAction())) {
+            return true;
+        }
         if (SDLControllerManager.isDeviceSDLJoystick(deviceId)) {
             // Note that we process events with specific key codes here
             if (event.getAction() == KeyEvent.ACTION_DOWN) {
