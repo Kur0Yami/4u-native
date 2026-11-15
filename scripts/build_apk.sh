@@ -54,5 +54,5 @@ echo "code library id: $(cat "$ROOT/android/app/src/main/assets/code_library_id.
 cd "$ROOT/android"
 ANDROID_HOME=$(native_path "$SDK"); export ANDROID_HOME   # (Gradle's SDK, without a local.properties)
 if [ -f keystore.properties ] && [ -f mh4u.keystore ]; then TASK=assembleRelease; KIND=release; else TASK=assembleDebug; KIND=debug; fi
-sh ./gradlew "$TASK" -q
+bash ./gradlew "$TASK" -q
 ls -l "app/build/outputs/apk/$KIND/"*.apk
