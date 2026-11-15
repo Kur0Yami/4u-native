@@ -541,6 +541,8 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
     protected void onResume() {
         Log.v(TAG, "onResume()");
         super.onResume();
+        SDLControllerManager.watchDevices();  // MH4U: a pad connected after the start is listed (see watchDevices)
+        SDLControllerManager.pollInputDevices();
 
         if (mHIDDeviceManager != null) {
             mHIDDeviceManager.setFrozen(false);
@@ -1504,6 +1506,7 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
                 if (SDLControllerManager.onNativePadDown(deviceId, keyCode, event.getScanCode())) {
                     return true;
                 }
+                Log.i("MH4U", "diag: key not taken by SDL: keycode=" + keyCode + " device=" + deviceId);
             } else if (event.getAction() == KeyEvent.ACTION_UP) {
                 if (SDLControllerManager.onNativePadUp(deviceId, keyCode, event.getScanCode())) {
                     return true;
