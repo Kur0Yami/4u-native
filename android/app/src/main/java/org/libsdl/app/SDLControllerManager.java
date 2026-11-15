@@ -470,6 +470,7 @@ class SDLJoystickHandler {
                             joystick.button_mask, joystick.axes.size(), getAxisMask(joystick.axes), joystick.hats.size()/2, can_rumble, has_rgb_led,
                             has_accelerometer, has_gyroscope);
                     Log.i("MH4U", "diag: joystick registered id=" + joystick.device_id + " name=" + joystick.name + " buttons=" + joystick.button_mask);
+                    Log.i("MH4U", "diag: joystick registered id=" + joystick.device_id + " name=" + joystick.name + " buttons=" + joystick.button_mask);
                 }
             }
         }
