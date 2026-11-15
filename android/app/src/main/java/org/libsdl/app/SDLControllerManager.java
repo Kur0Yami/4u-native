@@ -80,6 +80,22 @@ public class SDLControllerManager
         mJoystickHandler.pollInputDevices();
     }
 
+    // MH4U: a device connected after the app started (a Bluetooth pad) was only found when SDL happened to poll;
+    // there was no device listener here. This one polls on every add, change and removal, registered once.
+    private static boolean deviceWatchOn = false;
+    static synchronized void watchDevices() {
+        if (deviceWatchOn || SDLActivity.getContext() == null) return;
+        android.hardware.input.InputManager im = (android.hardware.input.InputManager)
+                SDLActivity.getContext().getSystemService(Context.INPUT_SERVICE);
+        if (im == null) return;
+        im.registerInputDeviceListener(new android.hardware.input.InputManager.InputDeviceListener() {
+            public void onInputDeviceAdded(int id) { pollInputDevices(); }
+            public void onInputDeviceRemoved(int id) { pollInputDevices(); }
+            public void onInputDeviceChanged(int id) { pollInputDevices(); }
+        }, null);
+        deviceWatchOn = true;
+    }
+
     /**
      * This method is called by SDL using JNI.
      */
