@@ -158,6 +158,33 @@ public class SDLControllerManager
     }
 
     private static final java.util.HashMap<Integer, Boolean> sPadKeyboards = new java.util.HashMap<>();
+    // Kur0Yami: external devices read as a controller because a gamepad's button came from them, though Android lists no
+    // gamepad's A and B among their keys (an iPega PG-9025 in its keyboard mode: Azahar reads it, SDL did not)
+    static final java.util.Set<Integer> sPadForced = java.util.Collections.synchronizedSet(new java.util.HashSet<Integer>());
+
+    // Kur0Yami: the first press of a gamepad's button (KEYCODE_BUTTON_*) from an external device not read as a controller
+    // makes it one: it is added as a joystick, and SDL then lists it (Controls, Map a controller). True: that press is
+    // spent (the controller isn't open yet, and as a key it would reach the game as Enter or Escape)
+    static boolean padKeyPromote(int deviceId, int keyCode) {
+        if (deviceId < 0 || !KeyEvent.isGamepadButton(keyCode) || sPadForced.contains(deviceId)) {
+            return false;
+        }
+        InputDevice device = InputDevice.getDevice(deviceId);
+        if (device == null || device.isVirtual() || (Build.VERSION.SDK_INT >= 29 && !device.isExternal())) {
+            return false;
+        }
+        if (isDeviceSDLJoystick(deviceId)) {
+            return false;
+        }
+        sPadForced.add(deviceId);
+        sPadKeyboards.put(deviceId, true);
+        Log.i("MH4U", "input: " + device.getName() + " sent " + KeyEvent.keyCodeToString(keyCode) +
+                " but Android lists it as a keyboard without a gamepad's keys: read as a controller");
+        if (mJoystickHandler != null) {
+            mJoystickHandler.pollInputDevices();
+        }
+        return true;
+    }
     // MH4U: devices whose A, B, X or Y came though Android didn't list them (SDLJoystickHandler.faceButtonPressed)
     static final java.util.Set<Integer> sFaceSeen = java.util.Collections.synchronizedSet(new java.util.HashSet<Integer>());
 
@@ -181,15 +208,17 @@ public class SDLControllerManager
     static boolean padKeyboard(InputDevice device) {
         int id = device.getId();
         Boolean known = sPadKeyboards.get(id);
-        if (known != null) return known;
+        if (known != null && known) return true;  // (Kur0Yami: only a yes is kept; a no is asked again, as Android may not have loaded the device's keys yet when it was first asked)
         boolean pad = false;
         if ((device.getSources() & InputDevice.SOURCE_KEYBOARD) == InputDevice.SOURCE_KEYBOARD && !device.isVirtual()
                 && (android.os.Build.VERSION.SDK_INT < 29 || device.isExternal())) {
             boolean[] has = device.hasKeys(KeyEvent.KEYCODE_BUTTON_A, KeyEvent.KEYCODE_BUTTON_B);
             pad = has.length == 2 && has[0] && has[1];
         }
-        sPadKeyboards.put(id, pad);
-        if (pad) Log.i("MH4U", "input: " + device.getName() + " is a keyboard with a gamepad's buttons: read as a controller");
+        if (pad) {
+            sPadKeyboards.put(id, true);
+            Log.i("MH4U", "input: " + device.getName() + " is a keyboard with a gamepad's buttons: read as a controller");
+        }
         return pad;
     }
 
@@ -703,6 +732,9 @@ class SDLJoystickHandler {
         }
         if (SDLControllerManager.sFaceSeen.contains(joystickDevice.getId())) {
             button_mask |= 0xF;  // MH4U: A, B, X, Y seen pressed though not listed (faceButtonPressed)
+        }
+        if (SDLControllerManager.sPadForced.contains(joystickDevice.getId())) {
+            button_mask |= 0x1FFFF;  // Kur0Yami: a device read as a controller from its first button: Android's list of its keys isn't to be trusted, so it has a gamepad's usual ones
         }
         return button_mask;
     }
