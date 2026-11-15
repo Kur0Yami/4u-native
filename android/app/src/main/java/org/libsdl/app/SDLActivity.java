@@ -541,6 +541,8 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
     protected void onResume() {
         Log.v(TAG, "onResume()");
         super.onResume();
+        SDLControllerManager.watchDevices();  // MH4U: a pad connected after the start is listed (see watchDevices)
+        SDLControllerManager.pollInputDevices();
 
         if (mHIDDeviceManager != null) {
             mHIDDeviceManager.setFrozen(false);
