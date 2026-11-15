@@ -80,6 +80,22 @@ public class SDLControllerManager
         mJoystickHandler.pollInputDevices();
     }
 
+    // MH4U: a device connected after the app started (a Bluetooth pad) was only found when SDL happened to poll;
+    // there was no device listener here. This one polls on every add, change and removal, registered once.
+    private static boolean deviceWatchOn = false;
+    static synchronized void watchDevices() {
+        if (deviceWatchOn || SDLActivity.getContext() == null) return;
+        android.hardware.input.InputManager im = (android.hardware.input.InputManager)
+                SDLActivity.getContext().getSystemService(Context.INPUT_SERVICE);
+        if (im == null) return;
+        im.registerInputDeviceListener(new android.hardware.input.InputManager.InputDeviceListener() {
+            public void onInputDeviceAdded(int id) { pollInputDevices(); }
+            public void onInputDeviceRemoved(int id) { pollInputDevices(); }
+            public void onInputDeviceChanged(int id) { pollInputDevices(); }
+        }, null);
+        deviceWatchOn = true;
+    }
+
     /**
      * This method is called by SDL using JNI.
      */
@@ -175,6 +191,19 @@ public class SDLControllerManager
         InputDevice device = InputDevice.getDevice(deviceId);
         Log.i("MH4U", "input: " + (device != null ? device.getName() : "?") +
                 " sends A, B, X, Y without listing them: added again with them, read as a controller");
+        return true;
+    }
+
+    // MH4U v6: a gamepad's button from a device SDL didn't open goes to the game straight, as a touch button would
+    // (controls.cpp nativePadKey: the 3DS's button, by place), and is taken here so Android's keyboard path never gets it
+    static native void nativePadKey(int keyCode, boolean down);
+    static boolean padKeyVirtual(int deviceId, int keyCode, int action) {
+        if (action != KeyEvent.ACTION_DOWN && action != KeyEvent.ACTION_UP) return false;
+        if (!isDeviceSDLJoystick(deviceId)) return false;
+        boolean pad = KeyEvent.isGamepadButton(keyCode) ||
+                (keyCode >= KeyEvent.KEYCODE_DPAD_UP && keyCode <= KeyEvent.KEYCODE_DPAD_RIGHT);
+        if (!pad) return false;
+        nativePadKey(keyCode, action == KeyEvent.ACTION_DOWN);
         return true;
     }
 
