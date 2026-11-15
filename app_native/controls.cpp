@@ -6,6 +6,7 @@
 #include "controls.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -90,6 +91,7 @@ std::function<void(bool, int, int)> g_set_touch;
 u32 g_town_presses = 0;
 bool g_last_pad = false;  // (controls_last_input_pad)  // the presses while the town's list or cursor has the controller, since controls_input
 u32 g_out_buttons = 0;  // (controls_buttons: the game's buttons from the controller and the keys, the last turn)
+std::atomic<u32> g_virtual_pad{0};  // MH4U v6: a gamepad's buttons from the Java side (nativePadKey), held with the rest
 bool g_debug = false;  // MH4U_PAD_DEBUG=1: every controller's press and push in the log
 
 void read_settings() {
@@ -987,7 +989,7 @@ ControlsInput controls_input(std::uint32_t game_frame) {
     g_last_ms = now;
     Pad* p = find_pad(g_active);
     SDL_Gamepad* pad = p && p->id != padmap_joystick() ? p->pad : nullptr;
-    u32 held = (pad ? pad_held(pad) : 0) | keys_held();
+    u32 held = (pad ? pad_held(pad) : 0) | keys_held() | g_virtual_pad.load();
     const u32 chord_bits = mh4n::kPadStart | mh4n::kPadSelect;
     if (g_chord && !(held & chord_bits)) g_chord = false;
     // the settings: nothing while they are open, and what is held as they close waits to be let go
@@ -1076,6 +1078,29 @@ ControlsInput controls_input(std::uint32_t game_frame) {
 }
 
 std::uint32_t controls_buttons() { return g_out_buttons; }
+
+// MH4U v6: a gamepad's button from a device SDL didn't open (SDLControllerManager.padKeyVirtual): the 3DS's button, by
+// place as face_bit's default does (A on the right, B below), and the d-pad. Pressed and let go from the Java side.
+extern "C" JNIEXPORT void JNICALL Java_org_libsdl_app_SDLControllerManager_nativePadKey(JNIEnv*, jclass, jint keycode, jboolean down) {
+    u32 bit = 0;
+    switch (keycode) {
+    case 96: bit = mh4n::kPadB; break;        // KEYCODE_BUTTON_A (SOUTH)
+    case 97: bit = mh4n::kPadA; break;        // KEYCODE_BUTTON_B (EAST)
+    case 99: bit = mh4n::kPadY; break;        // KEYCODE_BUTTON_X (WEST)
+    case 100: bit = mh4n::kPadX; break;       // KEYCODE_BUTTON_Y (NORTH)
+    case 102: bit = mh4n::kPadL; break;       // KEYCODE_BUTTON_L1
+    case 103: bit = mh4n::kPadR; break;       // KEYCODE_BUTTON_R1
+    case 108: bit = mh4n::kPadStart; break;   // KEYCODE_BUTTON_START
+    case 109: bit = mh4n::kPadSelect; break;  // KEYCODE_BUTTON_SELECT
+    case 19: bit = mh4n::kPadUp; break;       // KEYCODE_DPAD_UP
+    case 20: bit = mh4n::kPadDown; break;     // KEYCODE_DPAD_DOWN
+    case 21: bit = mh4n::kPadLeft; break;     // KEYCODE_DPAD_LEFT
+    case 22: bit = mh4n::kPadRight; break;    // KEYCODE_DPAD_RIGHT
+    default: return;
+    }
+    if (down) g_virtual_pad.fetch_or(bit);
+    else g_virtual_pad.fetch_and(~bit);
+}
 
 bool controls_last_input_pad() {
     return g_last_pad;
