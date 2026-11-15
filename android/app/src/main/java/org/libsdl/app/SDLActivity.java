@@ -1495,6 +1495,10 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
         // Furthermore, it's possible a game controller has SOURCE_KEYBOARD and
         // SOURCE_JOYSTICK, while its key events arrive from the keyboard source
         // So, retrieve the device itself and check all of its sources
+        if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0 &&
+                SDLControllerManager.padKeyPromote(deviceId, keyCode)) {
+            return true;  // (Kur0Yami: a gamepad's button from a device Android calls a keyboard: it is a controller from now on)
+        }
         if (SDLControllerManager.isDeviceSDLJoystick(deviceId)) {
             // Note that we process events with specific key codes here
             if (event.getAction() == KeyEvent.ACTION_DOWN) {
